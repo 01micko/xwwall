@@ -1,0 +1,10 @@
+xwwall for Debian
+
+xwwall is a graphical wallpaper setter for the X Window System
+often known as X11 and Wayland desktops for Linux and other
+*nix distributions. It should run in light weight desktop environments
+like Openbox, fluxbox, JWM for X11 and Labwc, Sway and others for
+Wayland. It supports up to 6 monitors. It is a shell script written
+in bash.
+
+ -- Mick Amadio <01micko@gmail.com>  Wed, 01 Jan 2025 14:41:41 +1000
