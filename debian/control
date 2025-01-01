@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Mick Amadio <01micko@gmail.com>
 Build-Depends:
  debhelper-compat (= 13)
-Standards-Version: 4.7.0
+Standards-Version: 4.6.2
 Homepage: https://github.com/01micko/xwwall
 Rules-Requires-Root: no
 Vcs-Git: https://github.com/01micko/xwwall.git
