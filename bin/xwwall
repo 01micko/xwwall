@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export V=0.1.0
+export V=0.1.1
 export GTK3DIALOG
 [[ -z "$GTK3DIALOG" ]] && GTK3DIALOG=gtk3dialog
 export BGDIR="${BGDIR:-$HOME/Pictures/wallpapers}"
@@ -196,6 +196,7 @@ _splash() {
 		3)ACT='<action>main_gui &</action><action>exit:OK</action>';;
 		5)ACT='<action>kill '$PID'</action><action>exit:abort</action>';KILL='<action>kill '$PID'</action>';;
 		6)E_VAL=Wait;CR=-c;;
+		7)E_VAL=Warning;CR=-c;;
 		*)CR=-c;ACT='<action>exit:OK</action>';;
 	esac
 	IVAL=4
@@ -626,11 +627,13 @@ trap_exit() {
 trap_exit
 export PID=$$
 
-if [[ -n "$WAYLAND_DISPLAY" ]]; then
-	case "$XDG_CURRENT_DESKTOP" in # sway on it's own may not set XDG_CURRENT_DESKTOP
-		wlroots|labwc|sway*|river|niri|hyprland|Bunsen*)echo "$XDG_CURRENT_DESKTOP";; # this can be expanded later
-		*)pidof sway >/dev/null 2>&1 || _splash "Unfortunately your desktop $XDG_CURRENT_DESKTOP is unsupported" 5;;
-	esac
+# test for compatibility
+KWNINX=$(pidof kwn_x11)
+KWNINW=$(pidof kwn_wayland)
+GNOME=$(pidof gnome-session) # covers X11 and wayland
+XFCE4=$(pidof xfce4-session) # covers X11 and wayland
+if [[ -n "$KWNINX" || "$KWNINW" || "$GNOME" || "$XFCE4" ]]; then # more to add
+	_splash "WARNING: Your desktop may be unsupported" 7
 fi
 
 if [[ ! -d "$BGDIR" ]]; then
