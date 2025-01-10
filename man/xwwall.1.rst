@@ -51,17 +51,24 @@ Main GUI
 The first thing you may see is a splash window warning you if you
 have too many wallpapers and cuts off at a 250 limit and then a
 window opens showing your wallpapers. Just select one and it will
-open in a window; select the image by pressing it or **no** to reject.
+open in a **Sub GUI** window; select the image by pressing it or **no**
+to reject.
 You can also select if you want the image to strecth, center, tile or fit
 your screen. If you do select **no** the program goes back to the main
 window.
 If you have more than 1 monitor the program cycles through those so you can
-choose different back grounds for each of them.
-Once done a confirmation window opens and you can either press **yes** or
-**no**; **yes** sets your wallpaper(s) while **no** restarts the program
-so you can try again.
+choose different backgrounds for each of them.
+Once done a confirmation window opens and you can either press **Yes**,
+**Refresh** or **No**; **Yes** sets your wallpaper(s) while **No** exits
+the program. **Refresh** restarts the program so you can try again.
 You can exit the program safely at any stage via **Cancel** or 
 the **X** (close) button of your window manager or compositor.
+
+Sub GUI
+-------
+This pops up after your selection in **Main GUI** and if on a single monitor
+sets the background directly or otherwise cycles through your outputs
+and the pops the **Confirm GUI** at the end. 
 
 Preferences
 -----------

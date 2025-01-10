@@ -110,6 +110,7 @@ else
 fi
 
 #CSS for splash
+[[ -z "$COLOR" ]] && COLOR=666666
 echo 'window#splash {
 	background: rgba(0,0,0,0.0);
 }
@@ -121,6 +122,17 @@ echo 'window#splash {
 }
 #sep {
 	background: rgba(0,0,0,0.0);
+}
+#ent {
+	background: @theme_selected_bg_color;
+}
+#noent {
+	background: @theme_bg_color;
+	color: @theme_fg_color;
+	border: none;
+}
+#cbg {
+	background: '#${COLOR}';
 }
 ' > "$TEMP/win.css"
 
@@ -161,7 +173,7 @@ else
 		. "$f"
 		[[ "$POS" == '0' ]] && echo "$OUTPUT = primary" && cp $f $TEMP/xx0
 		[[ "$POS" == "$X" ]] && echo "$OUTPUT = secondary" && cp $f $TEMP/xx1
-		[[ $POS -gt $X ]] && echo "$OUTPUT = extra" && cp $i $TEMP/xx2$e && e=$((e+1))
+		[[ $POS -gt $X ]] && echo "$OUTPUT = extra" && cp $f $TEMP/xx2$e && e=$((e+1))
 	done
 	rm $TEMP/Xmonitor* # finished with these
 	export NUM
@@ -239,7 +251,8 @@ _selections() {
 	echo '<hbox>' > $TEMP/ret
 	cat $TEMP/selected | while read -r sel
 	do
-		echo '    <pixmap tooltip-text="'${sel##*\/}'">
+		echo '    <pixmap name="cbg" tooltip-text="'${sel##*\/}'">
+		  <width>220</width>
 		  <height>120</height>
 		  <input file>'$sel'</input>
 		</pixmap>' >> $TEMP/ret
@@ -273,7 +286,7 @@ confirm_gui() {
 	eval "$($GTK3DIALOG -p CON -c --styles=$TEMP/win.css)"
 	case $EXIT in
 		Yes)_build_command;;
-		REFRESH)rm -f $TEMP/increment $TEMP/selected $TEMP/[XW]set rm -f $TEMP/ret
+		REFRESH)rm -f $TEMP/increment $TEMP/selected $TEMP/[XW]set $TEMP/ret
 		        main_gui &;;
 		*)return 1;;
 	esac
@@ -290,7 +303,7 @@ button_gui() {
 		# we take advantage of bash math here
 		# for a nicish GUI width *must* be consistent
 		i=$((c/4))
-		V='  		<button image-position="top" tooltip-text="'"${WALL##*/}"'">
+		V='  		<button name="cbg" image-position="top" tooltip-text="'"${WALL##*/}"'">
 	        <variable>BG'$c'</variable>
 	        <input file>'"\"$WALL\""'</input>
 			<height>'$Wdth'</height>
@@ -321,11 +334,13 @@ sub_gui() {
 	[[ -z "$COLOR" ]] && COLOR=999999
 	if [[ -n "$WAYLAND_DISPLAY" ]]; then
 		CCOL="-c $COLOR"
+		XMODE='<item>tile</item>'
 		SS='Wset'
 		ACTION='<action>echo -e " -o $OUT -m $MODE '$CCOL' \\ \n\t -i '\'$1\'' \\" >> '$TEMP/$SS'</action>'
 	else
 		# feh modes: --bg-scale, --bg-center[ --image-bg=$color], --bg-fill, --bg-max[ --image-bg=$color], --bg-tile
 		XCOL=" --image-bg=#${COLOR}"
+		[[ $NUM -eq 1 ]] && XMODE='<item>tile</item>'
 		SS='Xwset'
 		ACTION='<action>if [[ "$MODE" == "stretch" || "$MODE" == "fit" ]];then MODE=fill;fi; echo -e " --bg-$MODE '${XCOL}' \\ \n\t'\'$1\'' \\" >> '$TEMP/$SS'</action>'
 	fi
@@ -348,36 +363,55 @@ sub_gui() {
 		  <action>if [[ '$INC' -lt '$NUM' ]]; then main_gui;fi &</action>'
 		ETT='Pressing image will save, you can confirm later,'
 	fi
+	if [[ $INC -eq $NUM && -z "$WAYLAND_DISPLAY" ]]; then # only for X11
+    COMBO='<hbox space-expand="false" space-fill="false">
+      <entry name="noent" editable="false"><default>Mode:</default><sensitive>false</sensitive></entry>
+      <hseparator space-expand="true" space-fill="true" name="sep"></hseparator>
+      <comboboxtext space-expand="true" space-fill="true">
+        <variable>MODE</variable>
+        <item>max</item>
+        <item>stretch</item>
+        <item>fit</item>
+        <item>center</item>
+        '$XMODE'
+      </comboboxtext>
+    </hbox>'
+    MTEXT='Choose the Mode.'
+    elif [[ -n "$WAYLAND_DISPLAY" ]]; then  
+    COMBO='<hbox space-expand="false" space-fill="false">
+      <entry name="noent" editable="false"><default>Mode:</default><sensitive>false</sensitive></entry>
+      <hseparator space-expand="true" space-fill="true" name="sep"></hseparator>
+      <comboboxtext space-expand="true" space-fill="true">
+        <variable>MODE</variable>
+        <item>stretch</item>
+        <item>fill</item>
+        <item>fit</item>
+        <item>center</item>
+        <item>tile</item>
+      </comboboxtext>
+    </hbox>'
+    MTEXT='Choose the Mode.'
+    fi
 	export SUBGUI='<window icon-name="xwwall" title="Selection">
 	<vbox>
     <hbox space-expand="true" space-fill="true">
-	    <text><label>Choose Mode and press the image</label></text>
-	  </hbox>
-    <hbox space-expand="true" space-fill="false">
-      <text use-markup="true"><label>"<big>Mode:</big>"</label></text>
-      <comboboxtext>
-        <variable>MODE</variable>
-        <item>stretch</item>
-        <item>center</item>
-        <item>tile</item>
-        <item>fit</item>
-      </comboboxtext>
-    </hbox>
-	 <hbox space-expand="true" space-fill="false">
-      <text use-markup="true"><label>"<big>Output:</big>"</label></text>
-      <entry>
+	  <text><label>'$MTEXT' Press the image to set.</label></text>
+	</hbox>
+    '$COMBO'
+	<hbox space-expand="false" space-fill="false">
+      <entry name="noent" editable="false"><default>Output: '$INC'</default><sensitive>false</sensitive></entry>
+      <hseparator space-expand="true" space-fill="true" name="sep"></hseparator>
+      <entry name="ent" editable="false" width-chars="12">
         <variable>OUT</variable>
         '$DEFAULT'
       </entry>
     </hbox>
 	  <hbox space-expand="true" space-fill="true">
-		<button tooltip-text="'"${1##*/}"$'\n'''$ETT' or Press No to reject and confinue.">
+		<button name="cbg" tooltip-text="'"${1##*/}"$'\n'''$ETT' or Press No to reject and confinue.">
 		  <variable>CBG</variable>
 	      <input file>'$1'</input>
 	  	  <width>320</width>
 		  <action>echo -n '$((INC+1))' > $TEMP/increment</action>
-		  <!-- next line should never be reached, consider removing-->
-		  <action>if grep -q $OUT '$TEMP'/'$SS' >/dev/null 2>&1; then _splash "Only 1 wall per monitor. Maybe you have reached the monitor limit?." 3;fi;</action>
 		  <action>echo '$1' >> '$TEMP'/selected</action>
 		  '$ACTION'
 		  <action>sed -i "s% $%%g" '$TEMP/$SS'</action>
@@ -386,7 +420,6 @@ sub_gui() {
 		</button>
 	  </hbox>
 	  <hbox>
-	    <text label="Output: '$INC'"></text>
 	    <button>
 	      <label>No</label>
 	      <input file icon="gtk-no"></input>
@@ -628,8 +661,8 @@ trap_exit
 export PID=$$
 
 # test for compatibility
-KWNINX=$(pidof kwn_x11)
-KWNINW=$(pidof kwn_wayland)
+KWNINX=$(pidof kwin_x11)
+KWNINW=$(pidof kwin_wayland)
 GNOME=$(pidof gnome-session) # covers X11 and wayland
 XFCE4=$(pidof xfce4-session) # covers X11 and wayland
 if [[ -n "$KWNINX" || "$KWNINW" || "$GNOME" || "$XFCE4" ]]; then # more to add
@@ -639,6 +672,12 @@ fi
 if [[ ! -d "$BGDIR" ]]; then
 	_splash "Please set a background directory" 3
 	_pref
+else
+	[[ -r "$BGDIR/0Solid_Color.svg" ]] || cat > "$BGDIR/0Solid_Color.svg" <<EOS
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1366 768">
+ <path style="fill:rgba(0,0,0,0.0);" d="m 0,0 1366,0 0,768 -1366,0 z"/>
+</svg>	
+EOS
 fi
 
 if [[ "$NUM" != '1' ]]; then
