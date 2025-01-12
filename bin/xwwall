@@ -19,7 +19,14 @@ fi
 
 case "$1" in
 	--restore)
-	if [[ -f "$CONFDIR/cmd" && -n "$WAYLAND_DISPLAY" ]]; then
+	PROFILE="$2"
+	echo $PROFILE
+	if [[ -n "$PROFILE" && -r "$CONFDIR/$PROFILE/cmd" ]]; then
+		. "$CONFDIR/$PROFILE/cmd" && exit 0
+	elif [[ -n "$PROFILE" &&  -x "$CONFDIR/$PROFILE/.fehbg" ]]; then
+		exec "$CONFDIR/$PROFILE/.fehbg"
+	fi
+	if [[ -f "$CONFDIR/cmd" && "$XDG_SESSION_TYPE" == 'wayland' ]]; then
 		. "$CONFDIR/cmd" && exit 0
 	elif [[ -x "$HOME/.fehbg" ]]; then
 		exec "$HOME/.fehbg"
@@ -34,14 +41,15 @@ case "$1" in
 	-*h|-*help)
 	echo -e "\t$PROG -h|--help\n\t\tshow this help and exit.\n"
 	echo -e "\t$PROG -v|--version\n\t\tprint version and exit.\n"
-	echo -e "\t$PROG --restore\n\t\trestore backgrounds at session start.\n"
+	echo -e "\t$PROG --restore\n\t\trestore backgrounds at session start."
+	echo -e "\tAn optional argumant \"\$PROFILE\" is supported.\n"
 	echo -e "\ttry \"man $PROG\" for more information."
 	exit 0
 	;;
 esac
 
 # sort out the monitors and positions
-if [[ -n "$WAYLAND_DISPLAY" ]]; then
+if [[ "$XDG_SESSION_TYPE" == 'wayland' ]]; then
 	b=0
 	c=1
 	MON=''
@@ -148,7 +156,7 @@ case $TWIDTH in
 	 8)THEIGHT=12;;
 esac
 e=0
-if [[ -n "$WAYLAND_DISPLAY" ]]; then
+if [[ "$XDG_SESSION_TYPE" == 'wayland' ]]; then
 	for i in $TEMP/Wmonitor*
 	do
 		# $i is sourced
@@ -214,7 +222,7 @@ _splash() {
 	IVAL=4
 	re='^[0-9]'
 	[[ $3 =~ $re ]] && IVAL=$3
-	if [[ -n "$WAYLAND_DISPLAY" ]]; then
+	if [[ "$XDG_SESSION_TYPE" == 'wayland' ]]; then
 		[[ "$3" == 'b' ]] && POPT='edge="bottom" dist="200"'
 	else
 		[[ "$3" == 'b' ]] && CR="--geometry=+$((X/2-240))+$((Y-300))"
@@ -332,7 +340,7 @@ button_gui() {
 # sub GUI
 sub_gui() {
 	[[ -z "$COLOR" ]] && COLOR=999999
-	if [[ -n "$WAYLAND_DISPLAY" ]]; then
+	if [[ "$XDG_SESSION_TYPE" == 'wayland' ]]; then
 		CCOL="-c $COLOR"
 		XMODE='<item>tile</item>'
 		SS='Wset'
@@ -363,7 +371,7 @@ sub_gui() {
 		  <action>if [[ '$INC' -lt '$NUM' ]]; then main_gui;fi &</action>'
 		ETT='Pressing image will save, you can confirm later,'
 	fi
-	if [[ $INC -eq $NUM && -z "$WAYLAND_DISPLAY" ]]; then # only for X11
+	if [[ $INC -eq $NUM && "$XDG_SESSION_TYPE" != 'wayland' ]]; then # only for X11
     COMBO='<hbox space-expand="false" space-fill="false">
       <entry name="noent" editable="false"><default>Mode:</default><sensitive>false</sensitive></entry>
       <hseparator space-expand="true" space-fill="true" name="sep"></hseparator>
@@ -377,7 +385,7 @@ sub_gui() {
       </comboboxtext>
     </hbox>'
     MTEXT='Choose the Mode.'
-    elif [[ -n "$WAYLAND_DISPLAY" ]]; then  
+    elif [[ "$XDG_SESSION_TYPE" == 'wayland' ]]; then  
     COMBO='<hbox space-expand="false" space-fill="false">
       <entry name="noent" editable="false"><default>Mode:</default><sensitive>false</sensitive></entry>
       <hseparator space-expand="true" space-fill="true" name="sep"></hseparator>
@@ -618,7 +626,7 @@ _pref() {
 
 # build options for output
 _output() {
-	[[ -n "$WAYLAND_DISPLAY" ]] && fff=ww || fff=xx
+	[[ "$XDG_SESSION_TYPE" == 'wayland' ]] && fff=ww || fff=xx
 	rm -f $TEMP/OP
 	for output in $TEMP/${fff}*
 	do
@@ -632,7 +640,7 @@ _output() {
 }; export -f _output
 
 _build_command() {
-	if [[ -n "$WAYLAND_DISPLAY" ]]; then
+	if [[ "$XDG_SESSION_TYPE" == 'wayland' ]]; then
 		echo 'killall swaybg >/dev/null 2>&1' > $TEMP/cmd
 		echo 'swaybg \' >> $TEMP/cmd
 		cat $TEMP/Wset >> $TEMP/cmd

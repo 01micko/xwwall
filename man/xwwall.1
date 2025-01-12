@@ -60,11 +60,12 @@ show help and exit.
 .TP
 .B \-v | \-\-version
 print version and exit.
-.UNINDENT
-.INDENT 0.0
 .TP
-.B  \-\-restore
+.B \-\-restore [ optional arg ]
 restore backgrounds at session start.
+.sp
+\fB\-\-restore\fP takes an optional \fBprofile\fP argument.
+See \fBAdvanced Startup\fP further below.
 .UNINDENT
 .SH USAGE
 .sp
@@ -107,6 +108,15 @@ Slight adjustments to width of the main interface
 .IP 4. 3
 A background color for centered or transparent images
 .UNINDENT
+.SS Configuration
+.sp
+The config files are stored in \fB$HOME/.config/xwwall/\fP directory.
+Here the main configuration is stored from \fIPreferences\fP and if using
+\fIwayland\fP the \fBcmd\fP file which is sourced at startup with the
+\fB\-\-restore\fP option in your startup configuration. On \fIX11\fP the \fBfeh\fP
+program generates a \fB$HOME/.fehbg\fP executable file which is executed
+at startup  with the\(ga\(ga\-\-restore\(ga\(ga option if configured in your startup
+configuration.
 .SS Startup
 .sp
 You can start the program to restore your background choices from
@@ -116,6 +126,42 @@ your \fBautostart\fP or similar file with the following:
 .sp
 Consult your window manager or compositor documentation for the
 correct procedure.
+.SS Advanced Startup
+.sp
+\fBxwwall\fP supports \fIprofiles\fP such that you can have separate profile
+directories under the \fB$HOME/.config/xwwall/\fP directory. This is
+useful if you have different graphical environments setup so that you
+can have different wallpapers in different sessions. For example, you
+may have \fBlabwc\fP and \fBopenbox\fP on your system. You can create
+separate profiles for each of these, and as many as you want, named
+whatever you want. \fB$HOME/.config/xwwall/labwc/\fP profile directory
+for \fIlabwc\fP and \fB$HOME/.config/xwwall/openbox/\fP profile directory
+for \fIopenbox\fP\&.
+.sp
+Since \fIlabwc\fP is a \fIwayland\fP compositor then to make the profile useful
+you copy the \fB$HOME/.config/xwwall/cmd\fP file to
+\fB$HOME/.config/xwwall/labwc/cmd\fP
+.sp
+And since \fIopenbox\fP is an \fIX11\fP window manager the approach is slightly
+different. You need to copy the \fB$HOME/.fehbg\fP executable file to
+\fB$HOME/.config/xwwall/openbox/.fehbg\fP, making sure to preserve the
+executable permissions on the copied file.
+.sp
+Similar procedures can be followed for respective \fIwayland\fP compositors
+and \fIX11\fP window managers.
+.sp
+Once you have created you profile it then needs to be included in your
+startup routine. You can simply append the name of the profile directory
+to the \fB\-\-restore\fP option in your startup routine like so:
+.sp
+\fBxwwall \-\-restore openbox\fP
+.sp
+or whatever desired profile directory name you have used.
+.SH BUGS
+.sp
+Please report any bugs or feature requests to:
+.sp
+ <https://github.com/01micko/xwwall/issues> 
 .SH SEE ALSO
 .sp
 gtk3dialog(1), feh(1), swaybg(1)

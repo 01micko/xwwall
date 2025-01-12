@@ -38,8 +38,11 @@ OPTIONS
 -v | --version
   print version and exit.
 
---restore
+--restore [ optional arg ]
   restore backgrounds at session start.
+  
+  ``--restore`` takes an optional ``profile`` argument.
+  See **Advanced Startup** further below.
 
 USAGE
 ========
@@ -81,6 +84,16 @@ to set the following:
 3. Slight adjustments to width of the main interface
 4. A background color for centered or transparent images
 
+Configuration
+-------------
+The config files are stored in ``$HOME/.config/xwwall/`` directory.
+Here the main configuration is stored from *Preferences* and if using
+*wayland* the ``cmd`` file which is sourced at startup with the
+``--restore`` option in your startup configuration. On *X11* the ``feh``
+program generates a ``$HOME/.fehbg`` executable file which is executed
+at startup  with the``--restore`` option if configured in your startup
+configuration.
+
 Startup
 -------
 You can start the program to restore your background choices from
@@ -90,6 +103,45 @@ your **autostart** or similar file with the following:
 
 Consult your window manager or compositor documentation for the
 correct procedure.
+
+Advanced Startup
+----------------
+**xwwall** supports *profiles* such that you can have separate profile
+directories under the ``$HOME/.config/xwwall/`` directory. This is
+useful if you have different graphical environments setup so that you
+can have different wallpapers in different sessions. For example, you
+may have ``labwc`` and ``openbox`` on your system. You can create
+separate profiles for each of these, and as many as you want, named
+whatever you want. ``$HOME/.config/xwwall/labwc/`` profile directory
+for *labwc* and ``$HOME/.config/xwwall/openbox/`` profile directory
+for *openbox*.
+
+Since *labwc* is a *wayland* compositor then to make the profile useful
+you copy the ``$HOME/.config/xwwall/cmd`` file to
+``$HOME/.config/xwwall/labwc/cmd``
+
+And since *openbox* is an *X11* window manager the approach is slightly
+different. You need to copy the ``$HOME/.fehbg`` executable file to
+``$HOME/.config/xwwall/openbox/.fehbg``, making sure to preserve the
+executable permissions on the copied file.
+
+Similar procedures can be followed for respective *wayland* compositors
+and *X11* window managers.
+
+Once you have created you profile it then needs to be included in your
+startup routine. You can simply append the name of the profile directory
+to the ``--restore`` option in your startup routine like so:
+
+``xwwall --restore openbox``
+
+or whatever desired profile directory name you have used.
+
+BUGS
+====
+
+Please report any bugs or feature requests to:
+
+https://github.com/01micko/xwwall/issues
 
 SEE ALSO
 ========
