@@ -1,7 +1,7 @@
 Source: xwwall
 Section: x11
 Priority: optional
-Maintainer: Mick Amadio <01micko@gmail.com>
+Maintainer: Mick Amadio <01micko@gmx.com>
 Build-Depends:
  debhelper-compat (= 13)
 Standards-Version: 4.6.2
