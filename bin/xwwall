@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export V=0.1.2
+export V=0.1.3
 export GTK3DIALOG
 [[ -z "$GTK3DIALOG" ]] && GTK3DIALOG=gtk3dialog
 export BGDIR="${BGDIR:-$HOME/Pictures/wallpapers}"
@@ -17,6 +17,8 @@ if [[ ! -f "$CONF" ]];then
 fi
 . "$CONF"
 
+wlr-randr >/dev/null 2>&1 && export WAYLAND=yes
+
 case "$1" in
 	--restore)
 	PROFILE="$2"
@@ -26,13 +28,17 @@ case "$1" in
 	elif [[ -n "$PROFILE" &&  -x "$CONFDIR/$PROFILE/.fehbg" ]]; then
 		exec "$CONFDIR/$PROFILE/.fehbg"
 	fi
-	if [[ -f "$CONFDIR/cmd" && "$XDG_SESSION_TYPE" == 'wayland' ]]; then
+	if [[ -f "$CONFDIR/cmd" && "$WAYLAND" == 'yes' ]]; then
 		. "$CONFDIR/cmd" && exit 0
 	elif [[ -x "$HOME/.fehbg" ]]; then
 		exec "$HOME/.fehbg"
 	else
 		exit 1
 	fi
+	;;
+	-d|--delconf)
+		rm -f "$CONF"
+		exit 0
 	;;
 	-*v|-*version)
 	echo -e "\t$PROG $V\n\t\tGPL-2.0+ licence\n"
@@ -41,6 +47,8 @@ case "$1" in
 	-*h|-*help)
 	echo -e "\t$PROG -h|--help\n\t\tshow this help and exit.\n"
 	echo -e "\t$PROG -v|--version\n\t\tprint version and exit.\n"
+	echo -e "\t$PROG -d|--delconf\n\t\tdelete $CONF"
+	echo -e "\t\tif $PROG doesn't startand exit.\n"
 	echo -e "\t$PROG --restore\n\t\trestore backgrounds at session start."
 	echo -e "\tAn optional argumant \"\$PROFILE\" is supported.\n"
 	echo -e "\ttry \"man $PROG\" for more information."
@@ -49,7 +57,7 @@ case "$1" in
 esac
 
 # sort out the monitors and positions
-if [[ "$XDG_SESSION_TYPE" == 'wayland' ]]; then
+if [[ "$WAYLAND" == 'yes' ]]; then
 	b=0
 	c=1
 	MON=''
@@ -156,7 +164,7 @@ case $TWIDTH in
 	 8)THEIGHT=12;;
 esac
 e=0
-if [[ "$XDG_SESSION_TYPE" == 'wayland' ]]; then
+if [[ "$WAYLAND" == 'yes' ]]; then
 	for i in $TEMP/Wmonitor*
 	do
 		# $i is sourced
@@ -185,7 +193,7 @@ else
 	done
 	rm $TEMP/Xmonitor* # finished with these
 	export NUM
-	read NUM < $TEMP/number
+	read -r NUM < "$TEMP/number"
 	echo $NUM outputs
 	. $TEMP/xx0
 	export Wdth=$((X / TWIDTH))
@@ -217,12 +225,12 @@ _splash() {
 		5)ACT='<action>kill '$PID'</action><action>exit:abort</action>';KILL='<action>kill '$PID'</action>';;
 		6)E_VAL=Wait;CR=-c;;
 		7)E_VAL=Warning;CR=-c;;
-		*)CR=-c;ACT='<action>exit:OK</action>';;
+		*)CR=--geometry=+$((X/2-180))+150;ACT='<action>exit:OK</action>';;
 	esac
 	IVAL=4
 	re='^[0-9]'
 	[[ $3 =~ $re ]] && IVAL=$3
-	if [[ "$XDG_SESSION_TYPE" == 'wayland' ]]; then
+	if [[ "$WAYLAND" == 'yes' ]]; then
 		[[ "$3" == 'b' ]] && POPT='edge="bottom" dist="200"'
 	else
 		[[ "$3" == 'b' ]] && CR="--geometry=+$((X/2-240))+$((Y-300))"
@@ -230,6 +238,7 @@ _splash() {
 	TIMER='<timer interval="'$IVAL'" visible="false">'$KILL'<action>exit:'$E_VAL'</action></timer>'
 	echo '<window type-hint="6" icon-name="gtk-info" '$POPT' name="splash" width-request="360">
 	<vbox name="splash">
+	   <vbox> 
 		<hbox name="splash">
 		<hbox space-expand="false" space-fill="false">
 		  <pixmap name="splash"><width>42</width><input file icon="gtk-info"></input></pixmap>
@@ -240,6 +249,7 @@ _splash() {
 			<label>'"$1"'</label>
 		  </text>
 		</hbox>
+		'$RADIO'
 		</hbox>
 		<hbox name="splash">
 			'$DIS'
@@ -249,6 +259,7 @@ _splash() {
 			  '$ACT'
 			</button>
 		</hbox>
+	   </vbox>
 	</vbox>
 </window>' | $GTK3DIALOG -s "$CR" --styles=$TEMP/win.css
 	[[ "$2" == '1' ]] && exit $2
@@ -300,47 +311,90 @@ confirm_gui() {
 	esac
 }; export -f confirm_gui
 
-# populate the main GUI
+# populate buttons for the main GUI
 button_gui() {
-	local c i j WALL V buttonsx buttons
-	c=0
-	shopt -s globstar
-	for WALL in "$BGDIR"/*{,/**}
-	do
-		[[ "$(file --brief --mime-type "$WALL" )" = *image* ]] || continue # test mime
-		# we take advantage of bash math here
-		# for a nicish GUI width *must* be consistent
-		i=$((c/4))
-		V='  		<button name="cbg" image-position="top" tooltip-text="'"${WALL##*/}"'">
-	        <variable>BG'$c'</variable>
-	        <input file>'"\"$WALL\""'</input>
-			<height>'$Wdth'</height>
-			<width>'$Wdth'</width>
-			<action>_output '"\"$WALL\""' &</action>
-			<action>exit:BG'$c'</action>
-	      </button>'
-	      buttonsx[i]+="$V"$'\n'
-	      c=$((c+1))
-	      export TOT=$((c+1))
-	      if [[ $c -ge 250 ]];then
-			  export TOT=250
-			  _splash "Warning: Limit of 250 images" 2 2 &
-			  break
-		  fi
-	done
-	shopt -u globstar
-	for j in "${!buttonsx[@]}"
-	do buttons+="		<hbox>
-		${buttonsx[j]}
-		</hbox>"$'\n'
-	done
-	echo "$buttons" > "$TEMP/buttons"
+	local c i j n WALL V buttonsx buttons
+	. "$CONF"
+	if [[ "$XTRAS" == 'false' || -z "$XTRAS" ]]; then
+		echo "$BGDIR"
+		c=0
+		shopt -s globstar
+		for WALL in "$BGDIR"/*{,/**}
+		do
+			[[ "$(file --brief --mime-type "$WALL" )" = *image* ]] || continue # test mime
+			# we take advantage of bash math here
+			# for a nicish GUI width *must* be consistent
+			i=$((c/4))
+			V='  		<button name="cbg" image-position="top" tooltip-text="'"${WALL##*/}"'">
+		        <variable>BG'$c'</variable>
+		        <input file>'"\"$WALL\""'</input>
+				<height>'$Wdth'</height>
+				<width>'$Wdth'</width>
+				<action>_output '"\"$WALL\""' &</action>
+				<action>exit:BG'$c'</action>
+		      </button>'
+		      buttonsx[i]+="$V"$'\n'
+		      c=$((c+1))
+		      export TOT=$((c+1))
+		      if [[ $c -ge 300 ]];then
+				  export TOT=300
+				  _splash "Warning: Limit of 300 images" 2 2 &
+				  break
+			  fi
+		done
+		shopt -u globstar
+		for j in "${!buttonsx[@]}"
+		do buttons+="		<hbox>
+			${buttonsx[j]}
+			</hbox>"$'\n'
+		done
+		echo "$buttons" > "$TEMP/buttons"
+	elif [[ "$XTRAS" == 'true' ]]; then
+		echo "${EXTRA_BGDIRS[@]}"
+		c=0
+		n=0
+		while [[ n -lt  "${#EXTRA_BGDIRS[@]}" ]]
+		do
+			shopt -s globstar
+			for WALL in "${EXTRA_BGDIRS[n]}"/*{,/**}
+			do
+				[[ "$(file --brief --mime-type "$WALL" )" = *image* ]] || continue # test mime
+				# we take advantage of bash math here
+				# for a nicish GUI width *must* be consistent
+				i=$((c/4))
+				V='  		<button name="cbg" image-position="top" tooltip-text="'"${WALL##*/}"'">
+			        <variable>BG'$c'</variable>
+			        <input file>'"\"$WALL\""'</input>
+					<height>'$Wdth'</height>
+					<width>'$Wdth'</width>
+					<action>_output '"\"$WALL\""' &</action>
+					<action>exit:BG'$c'</action>
+			      </button>'
+			      buttonsx[i]+="$V"$'\n'
+			      c=$((c+1))
+			      export TOT=$((c+1))
+			      if [[ $c -ge 300 ]];then
+					  export TOT=300
+					  _splash "Warning: Limit of 300 images" 2 2 &
+					  break
+				  fi
+			done
+			shopt -u globstar
+			n=$((n+1))
+		done
+		for j in "${!buttonsx[@]}"
+		do buttons+="		<hbox>
+			${buttonsx[j]}
+			</hbox>"$'\n'
+		done
+		echo "$buttons" > "$TEMP/buttons"	
+	fi
 }
 
 # sub GUI
 sub_gui() {
 	[[ -z "$COLOR" ]] && COLOR=999999
-	if [[ "$XDG_SESSION_TYPE" == 'wayland' ]]; then
+	if [[ "$WAYLAND" == 'yes' ]]; then
 		CCOL="-c $COLOR"
 		XMODE='<item>tile</item>'
 		SS='Wset'
@@ -371,7 +425,7 @@ sub_gui() {
 		  <action>if [[ '$INC' -lt '$NUM' ]]; then main_gui;fi &</action>'
 		ETT='Pressing image will save, you can confirm later,'
 	fi
-	if [[ $INC -eq $NUM && "$XDG_SESSION_TYPE" != 'wayland' ]]; then # only for X11
+	if [[ $INC -eq $NUM && "$WAYLAND" != 'yes' ]]; then # only for X11
     COMBO='<hbox space-expand="false" space-fill="false">
       <entry name="noent" editable="false"><default>Mode:</default><sensitive>false</sensitive></entry>
       <hseparator space-expand="true" space-fill="true" name="sep"></hseparator>
@@ -385,7 +439,7 @@ sub_gui() {
       </comboboxtext>
     </hbox>'
     MTEXT='Choose the Mode.'
-    elif [[ "$XDG_SESSION_TYPE" == 'wayland' ]]; then  
+    elif [[ "$WAYLAND" == 'yes' ]]; then  
     COMBO='<hbox space-expand="false" space-fill="false">
       <entry name="noent" editable="false"><default>Mode:</default><sensitive>false</sensitive></entry>
       <hseparator space-expand="true" space-fill="true" name="sep"></hseparator>
@@ -489,6 +543,81 @@ main_gui() {
 # preferences
 _pref() {
 	. "$CONF"
+	if [[ -n "$EXTRA_BGDIRS" ]]; then
+		[[ -n "$XTRAS" ]] || XTRAS=true
+		DXTRA='	<hseparator space-expand="true" space-fill="true"></hseparator>
+    <hbox space-expand="true" space-fill="true">
+      <hbox space-expand="true" space-fill="true">
+        <checkbox>
+          <label>enable extra directories.</label>
+          <variable>CXTRA</variable>
+          <default>'$XTRAS'</default>
+        </checkbox>
+      </hbox>
+    </hbox>'
+	fi
+	export EXTRA_DIRS='<window icon-name="gtk-preferences" title="Extra Directories" width-request="400">
+	  <vbox>
+	    <hbox space-expand="true" space-fill="true">
+          <text use-markup="true"><label>"<b>Select extra directories.</b>"</label></text>
+        </hbox>
+        <hseparator space-expand="true" space-fill="true"></hseparator>
+        <hbox space-expand="true" space-fill="true">
+          <text><label>"Press Save and '$PROG' will restart when you are ready."</label></text>
+        </hbox>
+        <hseparator name="ent" space-expand="true" space-fill="true"></hseparator>
+        <hbox space-expand="true" space-fill="true">
+          <text><label>"Choose the directory to search wallpapers."</label></text>
+        </hbox>
+        <hbox space-expand="true" space-fill="true">
+          <hbox space-expand="true" space-fill="true">
+           <entry accept="directory" fs-title="'$PROG'">
+            <variable>BACKGROUNDS0</variable>
+           </entry>
+          </hbox>
+          <hbox space-expand="false" space-fill="false">
+          <button>
+            <input file icon="directory-open"></input>
+            <variable>FILE_BROWSE_DIRECTORY0</variable>
+            <action function="fileselect">BACKGROUNDS0</action>
+          </button>
+          </hbox>
+        </hbox>
+        <hseparator space-expand="true" space-fill="true"></hseparator>
+        <hbox space-expand="true" space-fill="true">
+          <hbox space-expand="true" space-fill="true">
+           <entry accept="directory" fs-title="'$PROG'">
+            <variable>BACKGROUNDS1</variable>
+           </entry>
+          </hbox>
+          <hbox space-expand="false" space-fill="false">
+          <button>
+            <input file icon="directory-open"></input>
+            <variable>FILE_BROWSE_DIRECTORY1</variable>
+            <action function="fileselect">BACKGROUNDS1</action>
+          </button>
+          </hbox>
+        </hbox>
+        <hseparator space-expand="true" space-fill="true"></hseparator>
+        <hbox space-expand="true" space-fill="true">
+          <hbox space-expand="true" space-fill="true">
+           <entry accept="directory" fs-title="'$PROG'">
+            <variable>BACKGROUNDS2</variable>
+          </entry>
+          </hbox>
+          <hbox space-expand="false" space-fill="false">
+          <button>
+            <input file icon="directory-open"></input>
+            <variable>FILE_BROWSE_DIRECTORY2</variable>
+            <action function="fileselect">BACKGROUNDS2</action>
+          </button>
+          </hbox>
+        </hbox>
+       </vbox>
+	  <variable>EXTRA_DIRS</variable>
+	</window>
+	'
+	
 	[[ "$SPLASH" == 'false' ]] && CDEF=false || CDEF=true
 	[[ -n "$COLOR" ]] && DEFCOL=#${COLOR} ||  DEFCOL=#666666
 	[[ -n "$SWIDTH" ]] && SW=$SWIDTH || SW=0
@@ -514,12 +643,13 @@ _pref() {
     <hbox space-expand="true" space-fill="true">
       <text><label>"Press Save and '$PROG' will restart when you are ready."</label></text>
     </hbox>
+    <hseparator name="ent" space-expand="true" space-fill="true"></hseparator>
     <hbox space-expand="true" space-fill="true">
       <text><label>"Choose the directory to search wallpapers."</label></text>
     </hbox>
     <hbox space-expand="true" space-fill="true">
       <hbox space-expand="true" space-fill="true">
-      <entry accept="directory">
+      <entry accept="directory" fs-title="'$PROG'">
         <default>'$BGDIR'</default>
         <variable>BACKGROUNDS</variable>
       </entry>
@@ -532,6 +662,21 @@ _pref() {
       </button>
       </hbox>
     </hbox>
+    <hseparator space-expand="true" space-fill="true"></hseparator>
+    <hbox space-expand="true" space-fill="true">
+      <hbox space-expand="true" space-fill="true">
+        <text label="Optionally choose extra directories"></text>
+      </hbox>
+      <hseparator space-expand="true" space-fill="true" name="sep"></hseparator>
+      <hbox space-expand="true" space-fill="true">
+        <button>
+          <label>Ok</label>
+          <input file icon="gtk-ok"></input>
+          <action function="launch">EXTRA_DIRS</action>
+        </button>
+      </hbox>
+    </hbox>
+'$DXTRA'
 '$SPLASHPREF'
     <hseparator space-expand="true" space-fill="true"></hseparator>
     <hbox space-expand="true" space-fill="true">
@@ -595,29 +740,53 @@ _pref() {
 </window>'
 	eval "$($GTK3DIALOG -p PGUI -c --styles=$TEMP/win.css)"
 	if [[ -d "$BACKGROUNDS" ]]; then
-		sed -i "s%^BGDIR.*$%BGDIR=\"$BACKGROUNDS\"%" $CONF
+		sed -i "s%^BGDIR.*$%BGDIR=\"$BACKGROUNDS\"%" "$CONF"
 		rm -f "$TEMP/buttons"
 		rm -f "$TEMP/main_gui.xml"
 	fi
-	if grep -q 'SPLASH' $CONF; then
-		sed -i "s/^SPLASH.*$/SPLASH=$SPL/" $CONF
-	else
-		echo "SPLASH=$SPL" >> $CONF
+	if ! [[ -z "$BACKGROUNDS0" && -z "$BACKGROUNDS1" && -z "$BACKGROUNDS2" ]]; then # do nothing if all vars are empty
+		if [[ -d "$BACKGROUNDS0" || -d "$BACKGROUNDS1" || -d "$BACKGROUNDS2" ]]; then
+			if grep -q 'EXTRA_BGDIRS' "$CONF"; then
+				sed -i '/EXTRA_BGDIRS/d' "$CONF"
+			fi
+			printf "%s" "EXTRA_BGDIRS=( " >>  "$CONF"
+			[[ -n "$BACKGROUNDS0" ]] && printf "%s" "\"$BACKGROUNDS0\" " >>  "$CONF"
+			[[ -n "$BACKGROUNDS1" ]] && printf "%s" "\"$BACKGROUNDS1\" " >>  "$CONF"
+			[[ -n "$BACKGROUNDS2" ]] && printf "%s" "\"$BACKGROUNDS2\" " >>  "$CONF"
+			printf "%s\n" ")" >>  "$CONF"
+			rm -f "$TEMP/buttons"
+			rm -f "$TEMP/main_gui.xml"
+			# since user just set these, enable them
+			echo "XTRAS=true" >> "$CONF"
+		fi
 	fi
-	if grep -q 'SWIDTH' $CONF; then
-		sed -i "s/^SWIDTH.*$/SWIDTH=$SW0/" $CONF
+	if grep -q 'SPLASH' "$CONF"; then
+		sed -i "s/^SPLASH.*$/SPLASH=$SPL/" "$CONF"
 	else
-		echo "SWIDTH=$SW0" >> $CONF
+		echo "SPLASH=$SPL" >> "$CONF"
 	fi
-	if grep -q 'TWIDTH' $CONF; then
-		sed -i "s/^TWIDTH.*$/TWIDTH=$TW0/" $CONF
+	if grep -q 'XTRAS' "$CONF"; then
+		[[ -n  "$CXTRA" ]] && \
+		sed -i "s/^XTRAS.*$/XTRAS=$CXTRA/" "$CONF"
 	else
-		echo "TWIDTH=$TW0" >> $CONF
+		[[ -n  "$CXTRA" ]] && \
+		echo "XTRAS=$CXTRA" >> "$CONF"
 	fi
-	if grep -q 'COLOR' $CONF; then
-		sed -i "s/^COLOR.*$/COLOR=${CLB0:1:6}/" $CONF
+	if grep -q 'SWIDTH' "$CONF"; then
+		sed -i "s/^SWIDTH.*$/SWIDTH=$SW0/" "$CONF"
 	else
-		echo "COLOR=${CLB0:1:6}" >> $CONF
+		echo "SWIDTH=$SW0" >> "$CONF"
+	fi
+	echo x $BACKGROUNDS0 $BACKGROUNDS1 $BACKGROUNDS2
+	if grep -q 'TWIDTH' "$CONF"; then
+		sed -i "s/^TWIDTH.*$/TWIDTH=$TW0/" "$CONF"
+	else
+		echo "TWIDTH=$TW0" >> "$CONF"
+	fi
+	if grep -q 'COLOR' "$CONF"; then
+		sed -i "s/^COLOR.*$/COLOR=${CLB0:1:6}/" "$CONF"
+	else
+		echo "COLOR=${CLB0:1:6}" >> "$CONF"
 	fi
 	if [[ "$EXIT" == 'SAVE' ]]; then
 		exec $0
@@ -626,7 +795,7 @@ _pref() {
 
 # build options for output
 _output() {
-	[[ "$XDG_SESSION_TYPE" == 'wayland' ]] && fff=ww || fff=xx
+	[[ "$WAYLAND" == 'yes' ]] && fff=ww || fff=xx
 	rm -f $TEMP/OP
 	for output in $TEMP/${fff}*
 	do
@@ -640,14 +809,14 @@ _output() {
 }; export -f _output
 
 _build_command() {
-	if [[ "$XDG_SESSION_TYPE" == 'wayland' ]]; then
+	if [[ "$WAYLAND" == 'yes' ]]; then
 		echo 'killall swaybg >/dev/null 2>&1' > $TEMP/cmd
 		echo 'swaybg \' >> $TEMP/cmd
 		cat $TEMP/Wset >> $TEMP/cmd
 		echo '>/dev/null 2>&1 &' >> $TEMP/cmd
 		# run it
 		. "$TEMP/cmd"
-		cat $TEMP/cmd > $CONFDIR/cmd # you can put this in your startup file
+		cat $TEMP/cmd > "$CONFDIR/cmd" # you can put this in your startup file
 	else
 		# this builds ~/.fehbg with the command below.
 		echo 'killall feh >/dev/null 2>&1' > $TEMP/cmd
@@ -692,6 +861,7 @@ if [[ "$NUM" != '1' ]]; then
 	# this nag can be disabled in prefs
 	_splash "You have $NUM monitors connected. Carefully choose an image for each of them." 0 b &
 fi
+
 echo ================
 button_gui
 main_gui
