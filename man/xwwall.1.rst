@@ -38,6 +38,10 @@ OPTIONS
 -v | --version
   print version and exit.
 
+-d|--delconf
+  delete the user configuration file ``$HOME/.config/xwwall/xwwall.conf``
+  in case it gets messed up from manual intervention.
+  
 --restore [ optional arg ]
   restore backgrounds at session start.
   
@@ -79,10 +83,16 @@ There is a **Preferences** button in the bottom left of the main window
 to set the following:
 
 1. Background directory - any directory where you have read access
-2. Splash checkbox screen for multiple monitors only:
-   checked to show, unchecked to hide
-3. Slight adjustments to width of the main interface
-4. A background color for centered or transparent images
+2. Optional extra directories for wallpaper search.
+   If extra directories are enabled a preference checkbox is shown
+   so that the user can switch between the main background directory or
+   the configured extra background directories. Up to 3 extra directories
+   are allowed. Checked enables extras, unchecked for the default.
+3. Splash checkbox screen for multiple monitors only:
+   checked to show, unchecked to hide.
+4. Slight adjustments to width of the main interface.
+5. A background color for centered or transparent images.
+
 
 Configuration
 -------------
@@ -93,6 +103,9 @@ Here the main configuration is stored from *Preferences* and if using
 program generates a ``$HOME/.fehbg`` executable file which is executed
 at startup  with the ``--restore`` option if configured in your startup
 configuration.
+
+Extra background directories are stored in a **bash array** in the config
+file from the **Preferences** interface.
 
 Startup
 -------

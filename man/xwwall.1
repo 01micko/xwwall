@@ -61,6 +61,10 @@ show help and exit.
 .B \-v | \-\-version
 print version and exit.
 .TP
+.B \-d|\-\-delconf
+delete the user configuration file \fB$HOME/.config/xwwall/xwwall.conf\fP
+in case it gets messed up from manual intervention.
+.TP
 .B \-\-restore [ optional arg ]
 restore backgrounds at session start.
 .sp
@@ -101,12 +105,18 @@ to set the following:
 .IP 1. 3
 Background directory \- any directory where you have read access
 .IP 2. 3
-Splash checkbox screen for multiple monitors only:
-checked to show, unchecked to hide
+Optional extra directories for wallpaper search.
+If extra directories are enabled a preference checkbox is shown
+so that the user can switch between the main background directory or
+the configured extra background directories. Up to 3 extra directories
+are allowed. Checked enables extras, unchecked for the default.
 .IP 3. 3
-Slight adjustments to width of the main interface
+Splash checkbox screen for multiple monitors only:
+checked to show, unchecked to hide.
 .IP 4. 3
-A background color for centered or transparent images
+Slight adjustments to width of the main interface.
+.IP 5. 3
+A background color for centered or transparent images.
 .UNINDENT
 .SS Configuration
 .sp
@@ -117,6 +127,9 @@ Here the main configuration is stored from \fIPreferences\fP and if using
 program generates a \fB$HOME/.fehbg\fP executable file which is executed
 at startup  with the \fB\-\-restore\fP option if configured in your startup
 configuration.
+.sp
+Extra background directories are stored in a \fBbash array\fP in the config
+file from the \fBPreferences\fP interface.
 .SS Startup
 .sp
 You can start the program to restore your background choices from
