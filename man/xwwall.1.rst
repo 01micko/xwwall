@@ -149,6 +149,12 @@ to the ``--restore`` option in your startup routine like so:
 
 or whatever desired profile directory name you have used.
 
+Running from a differnt Directory
+---------------------------------
+**xwwall** can be run from a different location then you HOME dir. For
+this to be useful delete or rename your configuration so that the
+directory where you run from is picked up.
+
 BUGS
 ====
 

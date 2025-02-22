@@ -1,9 +1,14 @@
 #!/bin/bash
 
-export V=0.1.3
+export V=0.2.0
 export GTK3DIALOG
+export MAINGUI
 [[ -z "$GTK3DIALOG" ]] && GTK3DIALOG=gtk3dialog
-export BGDIR="${BGDIR:-$HOME/Pictures/wallpapers}"
+if [[ "$(pwd)" == "$HOME" ]]; then 
+	export BGDIR="${BGDIR:-$HOME/Pictures/wallpapers}"
+else
+	export BGDIR="$(pwd)"
+fi
 export PROG=${0##*\/}
 export TEMP=/tmp/$PROG
 #export TEMP=$HOME/tmp/$PROG # for testing
@@ -152,8 +157,6 @@ echo 'window#splash {
 }
 ' > "$TEMP/win.css"
 
-
-
 # get the primary output
 [[ -z "$TWIDTH" ]] && TWIDTH=9
 case $TWIDTH in
@@ -236,12 +239,12 @@ _splash() {
 		[[ "$3" == 'b' ]] && CR="--geometry=+$((X/2-240))+$((Y-300))"
 	fi
 	TIMER='<timer interval="'$IVAL'" visible="false">'$KILL'<action>exit:'$E_VAL'</action></timer>'
-	echo '<window type-hint="6" icon-name="gtk-info" '$POPT' name="splash" width-request="360">
+	echo '<window type-hint="6" icon-name="dialog-info" '$POPT' name="splash" width-request="360">
 	<vbox name="splash">
 	   <vbox> 
 		<hbox name="splash">
 		<hbox space-expand="false" space-fill="false">
-		  <pixmap name="splash"><width>42</width><input file icon="gtk-info"></input></pixmap>
+		  <pixmap name="splash"><width>42</width><input file icon="dialog-info"></input></pixmap>
 		  '$TIMER'
 	    </hbox>
 	    <hbox space-expand="true" space-fill="true">
@@ -264,6 +267,29 @@ _splash() {
 </window>' | $GTK3DIALOG -s "$CR" --styles=$TEMP/win.css
 	[[ "$2" == '1' ]] && exit $2
 }; export -f _splash
+
+# if < 300 images or on a single monitor there is no welcome splash
+# on slow kit a user might want to know if the thing is starting
+_greeting() {
+	export GREETING='<window type-hint="6" icon-name="xwwall" '$SOPT' name="splash" file-monitor="true" title="'$PROG'" width-request="300">
+	<vbox name="splash" space-expand="true" space-fill="true">
+	  <hbox space-expand="true" space-fill="true">
+	    <pixmap>
+	      <input file icon="xwwall"></input><width>64</width>
+	    </pixmap>
+	  </hbox>
+	  <hbox space-expand="true" space-fill="true">
+	    <text use-markup="true">
+	      <label>"<big><big>Welcome to '$PROG'</big></big>"</label>
+	    </text>
+	  </hbox>
+	</vbox>
+	<variable>GREETING</variable>
+    <input file>'$TEMP/greeting'</input>
+    <action signal="file-changed">exit:GREETING</action>
+  </window>'
+  $GTK3DIALOG -p GREETING -c --styles=$TEMP/win.css 
+}; export -f _greeting
 
 # sort selections
 _selections() {
@@ -292,8 +318,14 @@ confirm_gui() {
 		'$PIX'
 	  </hbox>
 	  <hbox>
-	    <button yes></button>
-	    <button no></button>
+	    <button yes>
+	      <action signal="button-press-event">echo '$PROG' - sleeping > '$TEMP/wake'</action>
+	      <action signal="button-release-event">exit:Yes</action>
+	    </button>
+	    <button no>
+	      <action>rm -f '$TEMP/increment'</action>
+          <action>exit:No</action>
+	    </button>
 	    <button tooltip-text="If unsatisfied with your choice try again.">
 	      <input file icon="refresh"></input>
 	      <label>Refresh</label>
@@ -304,12 +336,37 @@ confirm_gui() {
 </window>'
 	eval "$($GTK3DIALOG -p CON -c --styles=$TEMP/win.css)"
 	case $EXIT in
-		Yes)_build_command;;
-		REFRESH)rm -f $TEMP/increment $TEMP/selected $TEMP/[XW]set $TEMP/ret
-		        main_gui &;;
-		*)return 1;;
+		Yes)_build_command; read -r a b c <<<$(ps -ef | grep -m1 'main_gui'); kill -9 $b;;
+		REFRESH)rm -f $TEMP/increment $TEMP/selected $TEMP/[XW]set $TEMP/ret;;
+		*)rm -f $TEMP/$TEMP/increment $TEMP/selected $TEMP/[XW]set $TEMP/ret; return 1;;
 	esac
 }; export -f confirm_gui
+
+# build options for output
+_output() {
+	[[ "$WAYLAND" == 'yes' ]] && fff=ww || fff=xx
+	rm -f $TEMP/OP
+	for output in $TEMP/${fff}*
+	do
+		. $output
+		export OUTPUT
+		export FBG="$1"
+		echo "<item>$OUTPUT</item>" >> $TEMP/OP
+	done
+	[[ -r "$TEMP/increment" ]] || echo -n 1 > "$TEMP/increment"
+	INC=$(cat $TEMP/increment)
+	case $INC in
+		1)DEFAULT=$(sed '1s/item/default/g' < $TEMP/OP | sed -n 1p); echo "$DEFAULT" > $TEMP/default_ent ;;
+		2)DEFAULT=$(sed '2s/item/default/g' < $TEMP/OP | sed -n 2p); echo "$DEFAULT" > $TEMP/default_ent ;;
+		3)DEFAULT=$(sed '3s/item/default/g' < $TEMP/OP | sed -n 3p); echo "$DEFAULT" > $TEMP/default_ent ;;
+		4)DEFAULT=$(sed '4s/item/default/g' < $TEMP/OP | sed -n 4p); echo "$DEFAULT" > $TEMP/default_ent ;;
+		5)DEFAULT=$(sed '5s/item/default/g' < $TEMP/OP | sed -n 5p); echo "$DEFAULT" > $TEMP/default_ent ;;
+		6)DEFAULT=$(sed '6s/item/default/g' < $TEMP/OP | sed -n 6p); echo "$DEFAULT" > $TEMP/default_ent ;;
+	esac
+	read -r DEF < $TEMP/default_ent
+	. "$CONF"
+	sub_gui "$FBG" $INC $DEF
+}; export -f _output
 
 # populate buttons for the main GUI
 button_gui() {
@@ -326,12 +383,10 @@ button_gui() {
 			# for a nicish GUI width *must* be consistent
 			i=$((c/4))
 			V='  		<button name="cbg" image-position="top" tooltip-text="'"${WALL##*/}"'">
-		        <variable>BG'$c'</variable>
 		        <input file>'"\"$WALL\""'</input>
-				<height>'$Wdth'</height>
 				<width>'$Wdth'</width>
-				<action>_output '"\"$WALL\""' &</action>
-				<action>exit:BG'$c'</action>
+				<action signal="button-press-event">_output '"\"$WALL\""' &</action>
+				<action signal="button-release-event" type="disable">MAINGUI</action>
 		      </button>'
 		      buttonsx[i]+="$V"$'\n'
 		      c=$((c+1))
@@ -363,12 +418,10 @@ button_gui() {
 				# for a nicish GUI width *must* be consistent
 				i=$((c/4))
 				V='  		<button name="cbg" image-position="top" tooltip-text="'"${WALL##*/}"'">
-			        <variable>BG'$c'</variable>
 			        <input file>'"\"$WALL\""'</input>
-					<height>'$Wdth'</height>
 					<width>'$Wdth'</width>
-					<action>_output '"\"$WALL\""' &</action>
-					<action>exit:BG'$c'</action>
+					<action signal="button-press-event">_output '"\"$WALL\""' &</action>
+					<action signal="button-release-event" type="disable">MAINGUI</action>
 			      </button>'
 			      buttonsx[i]+="$V"$'\n'
 			      c=$((c+1))
@@ -393,52 +446,43 @@ button_gui() {
 
 # sub GUI
 sub_gui() {
+	INC=$2 DEF=$3
 	[[ -z "$COLOR" ]] && COLOR=999999
 	if [[ "$WAYLAND" == 'yes' ]]; then
 		CCOL="-c $COLOR"
 		XMODE='<item>tile</item>'
 		SS='Wset'
-		ACTION='<action>echo -e " -o $OUT -m $MODE '$CCOL' \\ \n\t -i '\'$1\'' \\" >> '$TEMP/$SS'</action>'
+		ACTION='<action signal="button-press-event">echo -e " -o $OUT -m $MODE '$CCOL' -i '\'$1\'' \\" >> '$TEMP/$SS'</action>'
 	else
 		# feh modes: --bg-scale, --bg-center[ --image-bg=$color], --bg-fill, --bg-max[ --image-bg=$color], --bg-tile
 		XCOL=" --image-bg=#${COLOR}"
-		[[ $NUM -eq 1 ]] && XMODE='<item>tile</item>'
+		[[ $NUM -eq 1 ]] && XMODE='<item>fill</item>'
 		SS='Xwset'
-		ACTION='<action>if [[ "$MODE" == "stretch" || "$MODE" == "fit" ]];then MODE=fill;fi; echo -e " --bg-$MODE '${XCOL}' \\ \n\t'\'$1\'' \\" >> '$TEMP/$SS'</action>'
+		ACTION='<action signal="button-press-event">echo -e " --bg-$MODE '${XCOL}' '\'$1\'' \\" >> '$TEMP/$SS'</action>'
 	fi
-	[[ -r "$TEMP/increment" ]] || echo -n 1 > $TEMP/increment
-	INC=$(cat $TEMP/increment)
-	# set default for entry
-	case $INC in
-		1)DEFAULT=$(sed '1s/item/default/g' < $TEMP/OP | sed -n 1p) ;;
-		2)DEFAULT=$(sed '2s/item/default/g' < $TEMP/OP | sed -n 2p) ;;
-		3)DEFAULT=$(sed '3s/item/default/g' < $TEMP/OP | sed -n 3p) ;;
-		4)DEFAULT=$(sed '4s/item/default/g' < $TEMP/OP | sed -n 4p) ;;
-		5)DEFAULT=$(sed '5s/item/default/g' < $TEMP/OP | sed -n 5p) ;;
-		6)DEFAULT=$(sed '6s/item/default/g' < $TEMP/OP | sed -n 6p) ;;
-	esac
-	if [[ $NUM == 1 ]]; then
-		DO_ACTION='<action>_build_command &</action>'
+	if [[ $NUM -eq 1 ]]; then
+		DO_ACTION='<action signal="button-press-event">_build_command &</action>'
 		ETT='Pressing image will confirm,'
+		XTRACTION='<action signal="button-release-event">echo '$PROG' - sleeping > '$TEMP/wake'</action>
+	      <action signal="button-release-event">exit:Yes</action>'
 	else
-		DO_ACTION='		  <action>if [[ '$INC' -ge '$NUM' ]]; then confirm_gui;fi &</action>
-		  <action>if [[ '$INC' -lt '$NUM' ]]; then main_gui;fi &</action>'
+		DO_ACTION='<action signal="button-press-event">if [[ '$INC' -ge '$NUM' ]]; then confirm_gui;fi &</action>'
 		ETT='Pressing image will save, you can confirm later,'
 	fi
-	if [[ $INC -eq $NUM && "$WAYLAND" != 'yes' ]]; then # only for X11
+	MTEXT='Choose the Mode.'
+    if [[ $INC -eq $NUM && "$WAYLAND" != 'yes' ]]; then # only for X11
     COMBO='<hbox space-expand="false" space-fill="false">
       <entry name="noent" editable="false"><default>Mode:</default><sensitive>false</sensitive></entry>
       <hseparator space-expand="true" space-fill="true" name="sep"></hseparator>
       <comboboxtext space-expand="true" space-fill="true">
         <variable>MODE</variable>
+        <item>scale</item>
         <item>max</item>
-        <item>stretch</item>
-        <item>fit</item>
+        <item>fill</item>
         <item>center</item>
-        '$XMODE'
+        <item>tile</item>
       </comboboxtext>
     </hbox>'
-    MTEXT='Choose the Mode.'
     elif [[ "$WAYLAND" == 'yes' ]]; then  
     COMBO='<hbox space-expand="false" space-fill="false">
       <entry name="noent" editable="false"><default>Mode:</default><sensitive>false</sensitive></entry>
@@ -452,7 +496,6 @@ sub_gui() {
         <item>tile</item>
       </comboboxtext>
     </hbox>'
-    MTEXT='Choose the Mode.'
     fi
 	export SUBGUI='<window icon-name="xwwall" title="Selection">
 	<vbox>
@@ -465,7 +508,7 @@ sub_gui() {
       <hseparator space-expand="true" space-fill="true" name="sep"></hseparator>
       <entry name="ent" editable="false" width-chars="12">
         <variable>OUT</variable>
-        '$DEFAULT'
+        '$DEF'
       </entry>
     </hbox>
 	  <hbox space-expand="true" space-fill="true">
@@ -473,33 +516,38 @@ sub_gui() {
 		  <variable>CBG</variable>
 	      <input file>'$1'</input>
 	  	  <width>320</width>
-		  <action>echo -n '$((INC+1))' > $TEMP/increment</action>
-		  <action>echo '$1' >> '$TEMP'/selected</action>
+		  <action signal="button-press-event">echo -n '$((INC+1))' > $TEMP/increment</action>
+		  <action signal="button-press-event">echo '$1' >> '$TEMP'/selected</action>
 		  '$ACTION'
-		  <action>sed -i "s% $%%g" '$TEMP/$SS'</action>
+		  <action>sed -i -e "s% .$%%g" '$TEMP/$SS'</action>
+	      <action signal="button-press-event">echo '$PROG' > '$TEMP/wake'</action>
 		  '$DO_ACTION'
-	      <action>exit:CBG</action>
+		  '$XTRACTION'
+	      <action signal="button-release-event">exit:SUB</action>
 		</button>
 	  </hbox>
 	  <hbox>
-	    <button>
-	      <label>No</label>
-	      <input file icon="gtk-no"></input>
-	      <action>main_gui &</action>
-	      <action>exit:NO</action>
+	    <button no>
+	      <action signal="button-press-event">echo '$PROG' > '$TEMP/wake'</action>
+	      <action signal="button-release-event">exit:NO</action>
 	    </button>
 	  </hbox>
 	</vbox>
+    <variable>SUBGUI</variable>
    </window>'
-	$GTK3DIALOG -p SUBGUI -c --styles=$TEMP/win.css
+	eval $($GTK3DIALOG -p SUBGUI -c --styles=$TEMP/win.css)
+	case $EXIT in
+		Yes)read -r a b c <<<$(ps -u | grep -m1 'main_gui'); kill -9 $b;;
+	esac
 }; export -f sub_gui
 
 # populate the main GUI
 main_gui() {
+	echo ''$PROG' - sleeping' > "$TEMP/wake"
 	[[ -z "$SWIDTH" ]] && SWIDTH=0
 	[[ -r "$TEMP/main_gui.xml" ]] && _splash "Please wait ..." 6 2 &
 	BUTTONS=$(cat $TEMP/buttons)
-	export MAINGUI='<window icon-name="xwwall" title="'$PROG' - Background Choice">
+	export MAINGUI='<window icon-name="xwwall" file-monitor="true" auto-refresh="true" title="'$PROG' - Background Choice">
   <vbox>
     <hbox space-expand="true" space-fill="true">
       <text use-markup="true" tooltip-text="'$TOT' images"><label>"<b>Select an image for your wallpaper by pressing the image.</b>"</label></text>
@@ -532,9 +580,14 @@ main_gui() {
     </hbox>
     </hbox>
   </vbox>
+  <variable>MAINGUI</variable>
+  <input file>'$TEMP/wake'</input>
+  <action signal="realize">echo started > '$TEMP/greeting'</action>
+  <action signal="file-changed" type="enable">MAINGUI</action>
 </window>'
 	[[ -r "$TEMP/main_gui.xml" ]] || printf "%s\n" "$MAINGUI" > $TEMP/main_gui.xml
 	eval "$($GTK3DIALOG -f $TEMP/main_gui.xml -c --styles=$TEMP/win.css)"
+	
 	if [[ "$EXIT" == "PREFS" ]]; then
 		_pref
 	fi
@@ -682,7 +735,7 @@ _pref() {
     <hbox space-expand="true" space-fill="true">
       <hbox space-expand="true" space-fill="true">
         <hbox space-expand="false" space-fill="false">
-        <text label="GUI width adjustment" tooltip-text="Adjust the width of the interface to suit"></text>
+        <text label="GUI width adjustment" tooltip-text="Adjust the width of the interface to suit. The thumbnail setting below may also need adjustment."></text>
         </hbox>
         <hseparator space-expand="true" space-fill="true" name="sep"></hseparator>
         <hbox space-expand="false" space-fill="false">
@@ -697,7 +750,7 @@ _pref() {
     <hbox space-expand="true" space-fill="true">
       <hbox space-expand="true" space-fill="true">
         <hbox space-expand="false" space-fill="false">
-        <text label="Thumbnail adjustment" tooltip-text="Adjust the width thumbnail images. May need to adjust above setting to suit. Larger number is smaller width."></text>
+        <text label="Thumbnail adjustment" tooltip-text="Adjust the width of thumbnail images. May need to adjust above setting to suit. Larger number is smaller width."></text>
         </hbox>
         <hseparator space-expand="true" space-fill="true" name="sep"></hseparator>
         <hbox space-expand="false" space-fill="false">
@@ -777,7 +830,7 @@ _pref() {
 	else
 		echo "SWIDTH=$SW0" >> "$CONF"
 	fi
-	echo x $BACKGROUNDS0 $BACKGROUNDS1 $BACKGROUNDS2
+	echo $BACKGROUNDS0 $BACKGROUNDS1 $BACKGROUNDS2
 	if grep -q 'TWIDTH' "$CONF"; then
 		sed -i "s/^TWIDTH.*$/TWIDTH=$TW0/" "$CONF"
 	else
@@ -793,20 +846,6 @@ _pref() {
 	fi
 }; export -f _pref
 
-# build options for output
-_output() {
-	[[ "$WAYLAND" == 'yes' ]] && fff=ww || fff=xx
-	rm -f $TEMP/OP
-	for output in $TEMP/${fff}*
-	do
-		. $output
-		export OUTPUT
-		export FBG="$1"
-		echo "<item>$OUTPUT</item>" >> $TEMP/OP
-	done
-	. "$CONF"
-	sub_gui "$FBG"
-}; export -f _output
 
 _build_command() {
 	if [[ "$WAYLAND" == 'yes' ]]; then
@@ -828,12 +867,39 @@ _build_command() {
 	fi
 }; export -f _build_command
 
+_dependencies() {     # adapted from bl-includes
+    # Usage: _dependencies command [command...]
+    local missing_commands=()
+    i=
+    for i in "$@"
+    do
+        hash "$i" 2>/dev/null || missing_commands+=(" $i")
+    done
+
+    if [[ ${missing_commands[0]} ]];then
+        ERR_MSG="This script requires the following commands: \"${missing_commands[*]}\" .\
+Please install the packages containing the missing commands and re-run the script."
+        _splash "${ERR_MSG}" 3
+        exit
+    fi
+}
+
 trap_exit() {
 	trap "rm -rf $TEMP" EXIT
 }; export -f trap_exit
 
 
 ########################      main        ##############################
+
+# required programs
+declare -a APPS
+if [[ "$WAYLAND" == 'yes' ]]; then
+	APPS=( "gtk3dialog" "wlr-randr" "swaybg" )
+else
+	APPS=( "gtk3dialog" "xrandr" "feh" )
+fi
+_dependencies  "${APPS[@]}" 
+
 trap_exit
 export PID=$$
 
@@ -850,12 +916,17 @@ if [[ ! -d "$BGDIR" ]]; then
 	_splash "Please set a background directory" 3
 	_pref
 else
-	[[ -r "$BGDIR/0Solid_Color.svg" ]] || cat > "$BGDIR/0Solid_Color.svg" <<EOS
+	if  [[ -w "$(pwd)" ]]; then
+		[[ -r "$BGDIR/Solid_Color.svg" ]] || cat > "$BGDIR/Solid_Color.svg" <<EOS
 <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1366 768">
  <path style="fill:rgba(0,0,0,0.0);" d="m 0,0 1366,0 0,768 -1366,0 z"/>
 </svg>	
 EOS
+	fi
 fi
+
+touch "$TEMP/greeting"
+_greeting &
 
 if [[ "$NUM" != '1' ]]; then
 	# this nag can be disabled in prefs
