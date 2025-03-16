@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=XW Wallpaper
-Comment=Wallpaper setter for X11 or Wayland
-GenericName=Wallpaper Setter
-Exec=xwwall
-Icon=xwwall
-Terminal=false
-Type=Application
-Categories=Settings;System;Graphics;
