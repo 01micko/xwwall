@@ -16,6 +16,7 @@ Multi-Arch: foreign
 Depends:
  ${misc:Depends},
  bash (>= 5.0),
+ file,
  gtk3dialog,
  feh|swaybg,
  x11-xserver-utils|wlr-randr

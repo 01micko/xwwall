@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export V=0.2.2
+export V=0.2.3
 export GTK3DIALOG
 export MAINGUI
 [[ -z "$GTK3DIALOG" ]] && GTK3DIALOG=gtk3dialog
