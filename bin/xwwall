@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export V=0.2.4
+export V=0.2.5
 export GTK3DIALOG
 export MAINGUI
 [[ -z "$GTK3DIALOG" ]] && GTK3DIALOG=gtk3dialog
@@ -239,12 +239,12 @@ _splash() {
 		[[ "$3" == 'b' ]] && CR="--geometry=+$((X/2-240))+$((Y-300))"
 	fi
 	TIMER='<timer interval="'$IVAL'" visible="false">'$KILL'<action>exit:'$E_VAL'</action></timer>'
-	echo '<window type-hint="6" icon-name="dialog-info" '$POPT' name="splash" width-request="360">
+	echo '<window type-hint="6" icon-name="dialog-information" '$POPT' name="splash" width-request="360">
 	<vbox name="splash">
 	   <vbox> 
 		<hbox name="splash">
 		<hbox space-expand="false" space-fill="false">
-		  <pixmap name="splash"><width>42</width><input file icon="dialog-info"></input></pixmap>
+		  <pixmap name="splash"><width>42</width><input file icon="dialog-information"></input></pixmap>
 		  '$TIMER'
 	    </hbox>
 	    <hbox space-expand="true" space-fill="true">
@@ -327,7 +327,7 @@ confirm_gui() {
           <action>exit:No</action>
 	    </button>
 	    <button tooltip-text="If unsatisfied with your choice try again.">
-	      <input file icon="refresh"></input>
+	      <input file icon="view-refresh"></input>
 	      <label>Refresh</label>
           <action>exit:REFRESH</action>
 	    </button>
@@ -338,7 +338,7 @@ confirm_gui() {
 	case $EXIT in
 		Yes)_build_command; read -r a b c <<<$(ps -ef | grep -m1 'main_gui'); kill -9 $b;;
 		REFRESH)rm -f $TEMP/increment $TEMP/selected $TEMP/[XW]set $TEMP/ret;;
-		*)rm -f $TEMP/$TEMP/increment $TEMP/selected $TEMP/[XW]set $TEMP/ret; return 1;;
+		*)rm -f $TEMP/increment $TEMP/selected $TEMP/[XW]set $TEMP/ret; return 1;;
 	esac
 }; export -f confirm_gui
 
