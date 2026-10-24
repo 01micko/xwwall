@@ -5,7 +5,8 @@ export GTK3DIALOG
 export MAINGUI
 [[ -z "$GTK3DIALOG" ]] && GTK3DIALOG=gtk3dialog
 if [[ "$(pwd)" == "$HOME" ]]; then 
-	export BGDIR="${BGDIR:-$HOME/Pictures/wallpapers}"
+	# export BGDIR="${BGDIR:-$HOME/Pictures/wallpapers}"
+    export BGDIR="${BGDIR:-$(xdg-user-dir PICTURES)/wallpapers}"
 else
 	export BGDIR="$(pwd)"
 fi
