@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 export V=0.2.5
 export GTK3DIALOG
